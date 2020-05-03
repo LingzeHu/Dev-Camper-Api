@@ -9,15 +9,44 @@ const geocoder = require('../utils/geocoder');
 exports.getBootcamps = asyncHandler( async (req, res, next) => {
     let query;
 
-    let queryStr = JSON.stringify(req.query);
+    // Copy req.requiry
+    const reqQuery = { ...req.query };
 
+    // Field to exclude
+    const removeFields = ['select', 'sort'];
+
+    /// Loop over removeFields and delete them from reqQuery
+    removeFields.forEach(param => delete reqQuery[param]);
+    //console.log(reqQuery);
+
+    // create query string
+    let queryStr = JSON.stringify(reqQuery);
+
+    // Create operators ($gt, &gte, &in, etc)
     // use to comparison filter/ whether exist in filter
     queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
 
+    // Finding resource
     query = Bootcamp.find(JSON.parse(queryStr));
 
-    console.log(queryStr);
+    // Select Fields, mongoose
+    if(req.query.select) {
+        //console.log(req.query.select);
+        const fields = req.query.select.split(',').join(' ');
+        query = query.select(fields);
+        //console.log(query);
+    }
 
+    // Sort
+    if(req.query.sort) {
+        const sortBy = req.query.sort.split(',').join(' ');
+        query = query.sort(sortBy);
+    } else {
+        //default: descending createAt
+        query = query.sort('-createAt');
+    }
+
+    // Executing query
     const bootcamps = await query;
     res.status(200).json({
         success: true,
@@ -107,7 +136,6 @@ exports.getBootcampsInRadius = asyncHandler( async (req, res, next) => {
     const bootcamps = await Bootcamp.find({
         location: {$geoWithin: { $centerSphere: [ [ lng, lat], radius] } }
     });
-
 
     res.status(200).json({
         success: true,
